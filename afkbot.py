@@ -41,7 +41,7 @@ AUTHORIZED_USERS = [
 # ═══════════════════════════════════════════════════════════════
 # 🖼️ ILLEGALTR LOGO URL
 # ═══════════════════════════════════════════════════════════════
-ILLEGALTR_LOGO_URL = "https://i.ibb.co/KjZn9j0Q/interium.png"
+ILLEGALTR_LOGO_URL = "https://i.ibb.co/8nKcMB7p/2h-Zqjga.png"
 
 # Bot ayarları
 intents = discord.Intents.all()
