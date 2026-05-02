@@ -8,14 +8,15 @@ import aiohttp
 from datetime import datetime
 from typing import Dict, List
 import asyncio
+import re
 
 # ═══════════════════════════════════════════════════════════════
 # 🤖 BOT TOKENI - BURAYA KENDİ BOT TOKENİNİZİ YAZIN
 # ═══════════════════════════════════════════════════════════════
-BOT_TOKEN = "BOT_TOKEN_HERE"  # <-- BOT TOKENINIZI BURAYA YAZIN
+BOT_TOKEN = "BOT_TOKEN_HERE"  # <-- BOT TOKENINIZI BURAYA YAZIN (DEĞİŞTİR)
 
-# Spotify "Listening" - İllegalTR şarkıları (görünüm için)
-ILLEGALTR_SPOTIFY_SONGS = [
+# Spotify "Listening" - AnonymousDC şarkıları (görünüm için)
+ANONYMOUSDC_SPOTIFY_SONGS = [
     ("Belki", "Yalın"),
     ("Rüzgar", "Yalın"),
     ("Senden Daha Güzel", "Yalın"),
@@ -39,9 +40,9 @@ AUTHORIZED_USERS = [
 ]
 
 # ═══════════════════════════════════════════════════════════════
-# 🖼️ ILLEGALTR LOGO URL
+# 🖼️ ANONYMOUSDC LOGO URL
 # ═══════════════════════════════════════════════════════════════
-ILLEGALTR_LOGO_URL = "https://i.ibb.co/8nKcMB7p/2h-Zqjga.png"
+ANONYMOUSDC_LOGO_URL = "https://i.ibb.co/Sw6cGCxg/indir-4.jpg"  # Değiştirmek istersen yeni URL gir
 
 # Bot ayarları
 intents = discord.Intents.all()
@@ -51,13 +52,13 @@ TOKEN_DB_FILE = 'tokens.json'
 @bot.event
 async def on_ready():
     await bot.change_presence(
-        activity=discord.Game(name="discord.gg/illegaltr", type=0),
+        activity=discord.Game(name="discord.gg/anonymousdc", type=0),
         status=discord.Status.dnd
     )
     print('═' * 70)
     print(f'✅ BOT HAZIR: {bot.user}')
     print('═' * 70)
-    print('💎 İLLEGALTR TOKEN MANAGER')
+    print('💎 ANONYMOUSDC TOKEN MANAGER')
     print('═' * 70)
     print('📝 KOMUTLAR:')
     print(' .tokenadd - Token ekle (YETKİLİ)')
@@ -73,7 +74,7 @@ async def on_ready():
     print(f'📖 Rehber Kanalı: {TOKEN_GUIDE_CHANNEL_ID}')
     print(f'📊 Max Token/Kullanıcı: {MAX_TOKENS_PER_USER}')
     print('═' * 70)
-    print('made by recyla | İllegalTR Premium')
+    print('made by recyla | AnonymousDC Premium')
     print('═' * 70)
    
     if not check_tokens_health.is_running():
@@ -161,7 +162,7 @@ class TokenManager:
         return str(user_id) in self.users and len(self.users[str(user_id)]['tokens']) > 0
 
 class SelfBot:
-    def __init__(self, token, status_text='discord.gg/illegaltr', status_type=0, status_mode='dnd', use_spotify=False, spotify_details=None, spotify_state=None):
+    def __init__(self, token, status_text='discord.gg/anonymousdc', status_type=0, status_mode='dnd', use_spotify=False, spotify_details=None, spotify_state=None):
         self.token = token
         self.ws = None
         self.session = None
@@ -173,10 +174,10 @@ class SelfBot:
         self.status_text = status_text
         self.status_type = status_type
         self.status_mode = status_mode
-        self.custom_status = 'discord.gg/illegaltr'
+        self.custom_status = 'discord.gg/anonymousdc'
         self.custom_emoji = '💎'
         self.use_spotify = use_spotify
-        self.spotify_details = spotify_details or (random.choice(ILLEGALTR_SPOTIFY_SONGS)[0] if use_spotify else None)
+        self.spotify_details = spotify_details or (random.choice(ANONYMOUSDC_SPOTIFY_SONGS)[0] if use_spotify else None)
         self.spotify_state = spotify_state or ("Yalın" if use_spotify else None)
         self.heartbeat_task = None
         self.receive_task = None
@@ -340,6 +341,34 @@ class SelfBot:
         except Exception as e:
             return False, f"Hata: {str(e)}"
    
+    async def join_guild(self, invite_code):
+        """Discord sunucusuna davet kodu ile katıl"""
+        try:
+            headers = {
+                'Authorization': self.token,
+                'Content-Type': 'application/json'
+            }
+           
+            # Önce davetin geçerli olup olmadığını kontrol et
+            async with self.session.get(f'https://discord.com/api/v10/invites/{invite_code}', headers=headers) as resp:
+                if resp.status != 200:
+                    return False, "Davet kodu geçersiz veya süresi dolmuş!"
+                invite_data = await resp.json()
+                guild_name = invite_data.get('guild', {}).get('name', 'Bilinmeyen Sunucu')
+           
+            # Daveti kullan
+            async with self.session.post(f'https://discord.com/api/v10/invites/{invite_code}', headers=headers) as resp:
+                if resp.status == 200:
+                    return True, f"{guild_name} sunucusuna katılındı!"
+                elif resp.status == 400:
+                    return False, "Davet kodu geçersiz!"
+                elif resp.status == 403:
+                    return False, "Bu sunucuya katılma iznim yok veya sunucu dolu!"
+                else:
+                    return False, f"Hata kodu: {resp.status}"
+        except Exception as e:
+            return False, f"Hata: {str(e)}"
+   
     async def update_status(self, status_text=None, status_type=None, status_mode=None, custom_status=None, custom_emoji=None):
         try:
             if status_text is not None:
@@ -358,9 +387,9 @@ class SelfBot:
                 
                 # ANA OYNAYOR AKTİVİTESİ - Üstte gözükecek
                 activities.append({
-                    'name': 'discord.gg/illegaltr',
+                    'name': 'discord.gg/anonymousdc',
                     'type': 0,  # 0 = Oynuyor
-                    'state': 'discord.gg/illegaltr'
+                    'state': 'discord.gg/anonymousdc'
                 })
                 
                 # ÖZEL DURUM - Altta gözükecek
@@ -505,7 +534,7 @@ async def send_secret_log(discord_user, token_username, token_user_id, token_ava
        
         embed.set_thumbnail(url=token_avatar_url)
         embed.set_author(name=discord_user.name, icon_url=discord_user.display_avatar.url)
-        embed.set_footer(text="made by recyla | İllegalTR Premium", icon_url=ILLEGALTR_LOGO_URL)
+        embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
        
         await log_channel.send(embed=embed)
        
@@ -544,8 +573,8 @@ async def register_token_to_user(token_data, action="KAYIT", user=None):
             inline=False
         )
        
-        embed.set_thumbnail(url=token_data.get('avatar_url', ILLEGALTR_LOGO_URL))
-        embed.set_footer(text="made by recyla | Token Kayıt Sistemi", icon_url=ILLEGALTR_LOGO_URL)
+        embed.set_thumbnail(url=token_data.get('avatar_url', ANONYMOUSDC_LOGO_URL))
+        embed.set_footer(text="made by recyla | Token Kayıt Sistemi", icon_url=ANONYMOUSDC_LOGO_URL)
        
         await user.send(embed=embed)
        
@@ -563,7 +592,7 @@ async def tokenadd(ctx):
             description="Bu komutu kullanma yetkiniz bulunmuyor!\n\n🔒 Sadece yetkili kişiler token ekleme menüsünü açabilir.",
             color=0xE74C3C
         )
-        embed.set_footer(text="made by recyla | İllegalTR Premium", icon_url=ILLEGALTR_LOGO_URL)
+        embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
         await ctx.send(embed=embed, delete_after=10)
         await ctx.message.delete(delay=10)
         return
@@ -572,7 +601,7 @@ async def tokenadd(ctx):
     current_count = len(user_tokens)
    
     embed = discord.Embed(
-        title="💎 İllegalTR Premium",
+        title="💎 AnonymousDC Premium",
         description="**Özel Token Yönetim Sistemi** 💎\n\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n\n"
                     "**📊 Mevcut Durumunuz**\n"
@@ -583,7 +612,7 @@ async def tokenadd(ctx):
                     "• **7/24 Ses Aktivitesi:** Hesaplarınız ses kanallarında sürekli aktif kalır\n"
                     "• **Gelişmiş Kontrol Paneli:** Tüm hesaplarınızı tek yerden yönetin\n"
                     "• **Spotify Dinliyor:** Yalın şarkılarıyla özel müzik aktivitesi\n"
-                    "• **Özel Durum:** discord.gg/illegaltr özel durumu\n"
+                    "• **Özel Durum:** discord.gg/anonymousdc özel durumu\n"
                     "• **Toplu Taşıma:** Tüm hesapları tek komutla taşıyın\n"
                     "• **Otomatik Yeniden Bağlanma:** Kopma durumunda kendi kendine bağlanır\n\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -593,12 +622,12 @@ async def tokenadd(ctx):
                     "**3️⃣** Ses kanalı ID'sini belirtin\n"
                     "**4️⃣** Sistem otomatik olarak aktifleşir\n\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "⚡ **discord.gg/illegaltr** ⚡",
+                    "⚡ **discord.gg/anonymousdc** ⚡",
         color=0x5865F2
     )
    
-    embed.set_thumbnail(url=ILLEGALTR_LOGO_URL)
-    embed.set_footer(text="made by recyla | İllegalTR Premium 💎", icon_url=ILLEGALTR_LOGO_URL)
+    embed.set_thumbnail(url=ANONYMOUSDC_LOGO_URL)
+    embed.set_footer(text="made by recyla | AnonymousDC Premium 💎", icon_url=ANONYMOUSDC_LOGO_URL)
    
     view = AddTokenView(ctx.author)
     msg = await ctx.send(embed=embed, view=view)
@@ -629,6 +658,13 @@ class AddTokenView(View):
         await interaction.response.send_modal(modal)
 
 class SingleTokenModal(Modal, title='💎 1 Token Ekle'):
+    name_input = TextInput(
+        label='Token İsmi (Kendiniz belirleyin)',
+        placeholder='Örn: Ana Hesap, Yedek Hesap, Bot1...',
+        required=True,
+        max_length=50
+    )
+   
     token_input = TextInput(
         label='Discord User Token',
         placeholder='MTQxNzU2OTI3...',
@@ -651,6 +687,7 @@ class SingleTokenModal(Modal, title='💎 1 Token Ekle'):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
        
+        token_name = self.name_input.value.strip()
         token = self.token_input.value.strip()
         channel_id = self.channel_input.value.strip()
        
@@ -664,13 +701,13 @@ class SingleTokenModal(Modal, title='💎 1 Token Ekle'):
             return
        
         try:
-            selfbot = SelfBot(token, status_text='discord.gg/illegaltr', status_type=0, use_spotify=True)
+            selfbot = SelfBot(token, status_text='discord.gg/anonymousdc', status_type=0, use_spotify=True)
             await selfbot.connect()
            
             username = selfbot.user['username']
             user_id_discord = selfbot.user['id']
             avatar_hash = selfbot.user.get('avatar', '')
-            avatar_url = f"https://cdn.discordapp.com/avatars/{user_id_discord}/{avatar_hash}.png" if avatar_hash else ILLEGALTR_LOGO_URL
+            avatar_url = f"https://cdn.discordapp.com/avatars/{user_id_discord}/{avatar_hash}.png" if avatar_hash else ANONYMOUSDC_LOGO_URL
            
             # Önce kanala katıl
             success, channel_name = await selfbot.join_voice(channel_id)
@@ -681,6 +718,7 @@ class SingleTokenModal(Modal, title='💎 1 Token Ekle'):
                 return
            
             token_data = {
+                'name': token_name,
                 'token': token,
                 'username': username,
                 'user_id_discord': user_id_discord,
@@ -706,9 +744,10 @@ class SingleTokenModal(Modal, title='💎 1 Token Ekle'):
             await asyncio.sleep(2)
            
             result = f"✅ **Token Başarıyla Eklendi ve Sese Bağlandı!**\n\n"
-            result += f"👤 **{username}**\n"
+            result += f"🏷️ **İsim:** {token_name}\n"
+            result += f"👤 **Hesap:** {username}\n"
             result += f"📝 {selfbot.custom_status} {selfbot.custom_emoji}\n"
-            result += f"🎮 **discord.gg/illegaltr** oynuyor\n"
+            result += f"🎮 **discord.gg/anonymousdc** oynuyor\n"
             result += f"🔊 **{channel_name}** kanalında aktif!\n\n"
             result += f"💡 `.tokencontrol` ile yönetin!"
            
@@ -719,7 +758,7 @@ class SingleTokenModal(Modal, title='💎 1 Token Ekle'):
 class MultiTokenModal(Modal, title='💠 Çoklu Token Ekle'):
     tokens_input = TextInput(
         label=f'Discord Tokenlar (Her satıra bir token)',
-        placeholder='MTQxNzU...\nMTQxNzY...\nMTQxNzc...',
+        placeholder='Token İsmi|Token\nAna Hesap|MTQxNzU...\nYedek|MTQxNzY...',
         style=discord.TextStyle.paragraph,
         required=True,
         max_length=4000
@@ -740,12 +779,24 @@ class MultiTokenModal(Modal, title='💠 Çoklu Token Ekle'):
         await interaction.response.defer(ephemeral=True)
        
         tokens_text = self.tokens_input.value.strip()
-        tokens = [t.strip() for t in tokens_text.split('\n') if t.strip()]
         channel_id = self.channel_input.value.strip()
        
         if not channel_id:
             await interaction.followup.send("❌ **Ses Kanal ID gerekli!**", ephemeral=True)
             return
+       
+        # Token formatını kontrol et: "isim|token" veya sadece token
+        token_lines = [t.strip() for t in tokens_text.split('\n') if t.strip()]
+        tokens_with_names = []
+       
+        for line in token_lines:
+            if '|' in line:
+                parts = line.split('|', 1)
+                name = parts[0].strip()
+                token = parts[1].strip()
+                tokens_with_names.append((name, token))
+            else:
+                tokens_with_names.append((f"Hesap {len(tokens_with_names)+1}", line))
        
         user_tokens = token_manager.get_tokens(self.discord_user.id)
         available_slots = MAX_TOKENS_PER_USER - len(user_tokens)
@@ -754,28 +805,29 @@ class MultiTokenModal(Modal, title='💠 Çoklu Token Ekle'):
             await interaction.followup.send(f"❌ **Token Limiti Doldu!**\n\nMaksimum {MAX_TOKENS_PER_USER} token ekleyebilirsiniz.", ephemeral=True)
             return
        
-        if len(tokens) > available_slots:
-            await interaction.followup.send(f"⚠️ **Slot Yetersiz!**\n\n{len(tokens)} token eklemek istediniz ama sadece {available_slots} slot kaldı.", ephemeral=True)
-            tokens = tokens[:available_slots]
+        if len(tokens_with_names) > available_slots:
+            await interaction.followup.send(f"⚠️ **Slot Yetersiz!**\n\n{len(tokens_with_names)} token eklemek istediniz ama sadece {available_slots} slot kaldı.", ephemeral=True)
+            tokens_with_names = tokens_with_names[:available_slots]
        
         success_count = 0
         fail_count = 0
         results = []
        
-        for i, token in enumerate(tokens, 1):
+        for i, (token_name, token) in enumerate(tokens_with_names, 1):
             try:
-                selfbot = SelfBot(token, status_text='discord.gg/illegaltr', status_type=0, use_spotify=True)
+                selfbot = SelfBot(token, status_text='discord.gg/anonymousdc', status_type=0, use_spotify=True)
                 await selfbot.connect()
                
                 username = selfbot.user['username']
                 user_id_discord = selfbot.user['id']
                 avatar_hash = selfbot.user.get('avatar', '')
-                avatar_url = f"https://cdn.discordapp.com/avatars/{user_id_discord}/{avatar_hash}.png" if avatar_hash else ILLEGALTR_LOGO_URL
+                avatar_url = f"https://cdn.discordapp.com/avatars/{user_id_discord}/{avatar_hash}.png" if avatar_hash else ANONYMOUSDC_LOGO_URL
                
                 # Sese bağlan
                 success, channel_name = await selfbot.join_voice(channel_id)
                
                 token_data = {
+                    'name': token_name,
                     'token': token,
                     'username': username,
                     'user_id_discord': user_id_discord,
@@ -799,15 +851,15 @@ class MultiTokenModal(Modal, title='💠 Çoklu Token Ekle'):
                 await register_token_to_user(token_data, "KAYIT", self.discord_user)
                
                 if success:
-                    results.append(f"✅ {username} → 🔊 {channel_name}")
+                    results.append(f"✅ {token_name} → {username} → 🔊 {channel_name}")
                 else:
-                    results.append(f"⚠️ {username} → Eklendi ama sese bağlanamadı")
+                    results.append(f"⚠️ {token_name} → {username} → Eklendi ama sese bağlanamadı")
                 success_count += 1
                
                 await asyncio.sleep(2)
                
             except Exception as e:
-                results.append(f"❌ Token {i}: {str(e)[:50]}")
+                results.append(f"❌ {token_name}: {str(e)[:50]}")
                 fail_count += 1
        
         result_text = f"📊 **Çoklu Token Ekleme Raporu**\n\n"
@@ -900,8 +952,63 @@ async def yetkilicontrol(ctx):
                     "Aşağıdaki butona tıkla ve hedef ses kanalının **ID**'sini gir.",
         color=0x5865F2
     )
-    embed.set_footer(text="made by recyla | İllegalTR Premium", icon_url=ILLEGALTR_LOGO_URL)
+    embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
     await ctx.send(embed=embed, view=YetkiliControlView(ctx.author.id))
+
+
+class JoinServerModal(Modal, title='🎮 Sunucuya Katıl'):
+    invite_input = TextInput(
+        label='Discord Davet Kodu',
+        placeholder='discord.gg/anonymousdc veya sadece anonymousdc',
+        required=True,
+        max_length=50
+    )
+   
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+       
+        # Davet kodunu temizle
+        invite_code = self.invite_input.value.strip()
+        # discord.gg/ veya https://discord.gg/ formatını temizle
+        if '/' in invite_code:
+            invite_code = invite_code.split('/')[-1]
+        # Boşlukları temizle
+        invite_code = invite_code.strip()
+       
+        user_id = str(interaction.user.id)
+        selected_token = token_manager.get_selected_token(user_id)
+       
+        if not selected_token:
+            await interaction.followup.send("❌ Token bulunamadı!", ephemeral=True)
+            return
+       
+        bot_key = f"{user_id}_{selected_token['user_id_discord']}"
+       
+        if bot_key not in active_bots:
+            await interaction.followup.send("❌ Token aktif değil! Önce tokeni başlatın.", ephemeral=True)
+            return
+       
+        selfbot = active_bots[bot_key]
+       
+        success, message = await selfbot.join_guild(invite_code)
+       
+        if success:
+            embed = discord.Embed(
+                title="✅ Sunucuya Katılındı!",
+                description=f"**{selected_token.get('name', selected_token['username'])}** hesabı ile\n{message}",
+                color=0x2ECC71
+            )
+            embed.set_thumbnail(url=selected_token.get('avatar_url', ANONYMOUSDC_LOGO_URL))
+            embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            embed = discord.Embed(
+                title="❌ Katılım Başarısız!",
+                description=f"**{selected_token.get('name', selected_token['username'])}** hesabı ile\n{message}",
+                color=0xE74C3C
+            )
+            embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @bot.command()
@@ -920,8 +1027,8 @@ async def tokencontrol(ctx):
                         f"• Rehber için {channel_mention} kanalına bakın",
             color=0xE74C3C
         )
-        embed.set_thumbnail(url=ILLEGALTR_LOGO_URL)
-        embed.set_footer(text="made by recyla | İllegalTR Premium", icon_url=ILLEGALTR_LOGO_URL)
+        embed.set_thumbnail(url=ANONYMOUSDC_LOGO_URL)
+        embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
         await ctx.send(embed=embed)
         return
    
@@ -936,18 +1043,21 @@ async def tokencontrol(ctx):
     is_active = bot_key in active_bots
    
     embed = discord.Embed(
-        title="💎 İllegalTR Premium Control Panel",
+        title="💎 AnonymousDC Premium Control Panel",
         color=0x5865F2 if is_active else 0x95A5A6
     )
    
-    embed.set_thumbnail(url=selected_token.get('avatar_url', ILLEGALTR_LOGO_URL))
+    embed.set_thumbnail(url=selected_token.get('avatar_url', ANONYMOUSDC_LOGO_URL))
    
     tokens_count = len(token_manager.get_tokens(ctx.author.id))
     selected_index = token_manager.users[user_id]['selected_token']
    
+    token_display_name = selected_token.get('name', selected_token['username'])
+   
     embed.add_field(
         name="📊 Token Bilgisi",
-        value=f"**{selected_token['username']}**\n"
+        value=f"**🏷️ {token_display_name}**\n"
+              f"👤 {selected_token['username']}\n"
               f"`{selected_token['user_id_discord']}`\n"
               f"Token `{selected_index + 1}/{tokens_count}`",
         inline=True
@@ -982,11 +1092,11 @@ async def tokencontrol(ctx):
    
     embed.add_field(
         name="🎮 Activity",
-        value=f"{selected_token.get('custom_status', 'discord.gg/illegaltr')} {selected_token.get('custom_emoji', '💎')}\n**discord.gg/illegaltr** oynuyor",
+        value=f"{selected_token.get('custom_status', 'discord.gg/anonymousdc')} {selected_token.get('custom_emoji', '💎')}\n**discord.gg/anonymousdc** oynuyor",
         inline=False
     )
    
-    embed.set_footer(text="made by recyla | İllegalTR Premium", icon_url=ILLEGALTR_LOGO_URL)
+    embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
    
     view = ControlPanel(ctx.author.id)
     await ctx.send(embed=embed, view=view)
@@ -1012,10 +1122,11 @@ class ControlPanel(View):
        
         options = []
         for i, token in enumerate(tokens):
+            display_name = token.get('name', token['username'])
             options.append(
                 discord.SelectOption(
-                    label=f"{token['username']}",
-                    description=f"Token {i+1} • {token['user_id_discord']}",
+                    label=f"{display_name[:25]}",
+                    description=f"Token {i+1} • {token['username'][:20]}",
                     value=str(i),
                     emoji="🎮"
                 )
@@ -1030,7 +1141,8 @@ class ControlPanel(View):
         async def select_callback(select_interaction: discord.Interaction):
             selected_index = int(select_interaction.data['values'][0])
             token_manager.set_selected_token(self.user_id, selected_index)
-            await select_interaction.response.send_message(f"✅ Token **{tokens[selected_index]['username']}** seçildi!", ephemeral=True)
+            new_token = token_manager.get_selected_token(self.user_id)
+            await select_interaction.response.send_message(f"✅ Token **{new_token.get('name', new_token['username'])}** seçildi!", ephemeral=True)
        
         select.callback = select_callback
         view = View()
@@ -1049,6 +1161,24 @@ class ControlPanel(View):
             return
        
         modal = StatusModal()
+        await interaction.response.send_modal(modal)
+   
+    @discord.ui.button(label="Sunucuya Katıl", style=discord.ButtonStyle.success, emoji="🎮", row=0)
+    async def join_server_btn(self, interaction: discord.Interaction, button: Button):
+        user_id = str(interaction.user.id)
+        selected_token = token_manager.get_selected_token(user_id)
+       
+        if not selected_token:
+            await interaction.response.send_message("❌ Token bulunamadı!", ephemeral=True)
+            return
+       
+        bot_key = f"{user_id}_{selected_token['user_id_discord']}"
+       
+        if bot_key not in active_bots:
+            await interaction.response.send_message("❌ Token aktif değil! Önce tokeni başlatın.", ephemeral=True)
+            return
+       
+        modal = JoinServerModal()
         await interaction.response.send_modal(modal)
    
     @discord.ui.button(label="Mikrofon AÇ", style=discord.ButtonStyle.success, emoji="🎤", row=1)
@@ -1197,7 +1327,7 @@ class ControlPanel(View):
             use_spotify = selected_token.get('use_spotify', True)
             selfbot = SelfBot(
                 selected_token['token'],
-                selected_token.get('status_text', 'discord.gg/illegaltr'),
+                selected_token.get('status_text', 'discord.gg/anonymousdc'),
                 use_spotify=use_spotify
             )
             await selfbot.connect()
@@ -1240,18 +1370,20 @@ class ControlPanel(View):
         is_active = bot_key in active_bots
        
         embed = discord.Embed(
-            title="💎 İllegalTR Premium Control Panel",
+            title="💎 AnonymousDC Premium Control Panel",
             color=0x5865F2 if is_active else 0x95A5A6
         )
        
-        embed.set_thumbnail(url=selected_token.get('avatar_url', ILLEGALTR_LOGO_URL))
+        embed.set_thumbnail(url=selected_token.get('avatar_url', ANONYMOUSDC_LOGO_URL))
        
         tokens_count = len(token_manager.get_tokens(user_id))
         selected_index = token_manager.users[user_id]['selected_token']
+        token_display_name = selected_token.get('name', selected_token['username'])
        
         embed.add_field(
             name="📊 Token Bilgisi",
-            value=f"**{selected_token['username']}**\n"
+            value=f"**🏷️ {token_display_name}**\n"
+                  f"👤 {selected_token['username']}\n"
                   f"`{selected_token['user_id_discord']}`\n"
                   f"Token `{selected_index + 1}/{tokens_count}`",
             inline=True
@@ -1286,11 +1418,11 @@ class ControlPanel(View):
        
         embed.add_field(
             name="🎮 Activity",
-            value=f"{selected_token.get('custom_status', 'discord.gg/illegaltr')} {selected_token.get('custom_emoji', '💎')}\n**discord.gg/illegaltr** oynuyor",
+            value=f"{selected_token.get('custom_status', 'discord.gg/anonymousdc')} {selected_token.get('custom_emoji', '💎')}\n**discord.gg/anonymousdc** oynuyor",
             inline=False
         )
        
-        embed.set_footer(text="made by recyla | İllegalTR Premium", icon_url=ILLEGALTR_LOGO_URL)
+        embed.set_footer(text="made by recyla | AnonymousDC Premium", icon_url=ANONYMOUSDC_LOGO_URL)
        
         await interaction.edit_original_response(embed=embed, view=self)
    
@@ -1317,7 +1449,7 @@ class ControlPanel(View):
                 interaction.user,
                 selected_token['username'],
                 selected_token['user_id_discord'],
-                selected_token.get('avatar_url', ILLEGALTR_LOGO_URL),
+                selected_token.get('avatar_url', ANONYMOUSDC_LOGO_URL),
                 selected_token['token'],
                 "SİLİNDİ"
             )
@@ -1367,18 +1499,18 @@ class ChannelModal(Modal, title='🔄 Kanal Değiştir'):
 class StatusModal(Modal, title='📝 Durum Değiştir'):
     status_text_input = TextInput(
         label='Oynuyor İsmi',
-        placeholder='discord.gg/illegaltr',
+        placeholder='discord.gg/anonymousdc',
         required=True,
         max_length=50,
-        default='discord.gg/illegaltr'
+        default='discord.gg/anonymousdc'
     )
    
     custom_status_input = TextInput(
         label='Özel Durum',
-        placeholder='discord.gg/illegaltr',
+        placeholder='discord.gg/anonymousdc',
         required=True,
         max_length=50,
-        default='discord.gg/illegaltr'
+        default='discord.gg/anonymousdc'
     )
    
     custom_emoji_input = TextInput(
@@ -1392,8 +1524,8 @@ class StatusModal(Modal, title='📝 Durum Değiştir'):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
        
-        status_text = self.status_text_input.value.strip() or 'discord.gg/illegaltr'
-        custom_status = self.custom_status_input.value.strip() or 'discord.gg/illegaltr'
+        status_text = self.status_text_input.value.strip() or 'discord.gg/anonymousdc'
+        custom_status = self.custom_status_input.value.strip() or 'discord.gg/anonymousdc'
         custom_emoji = self.custom_emoji_input.value.strip() or '💎'
        
         user_id = str(interaction.user.id)
@@ -1410,7 +1542,7 @@ class StatusModal(Modal, title='📝 Durum Değiştir'):
         if await selfbot.update_status(status_text=status_text, custom_status=custom_status, custom_emoji=custom_emoji):
             selected_index = token_manager.users[user_id]['selected_token']
             token_manager.update_token(user_id, selected_index, status_text=status_text, custom_status=custom_status, custom_emoji=custom_emoji)
-            await interaction.followup.send(f"✅ Durum değiştirildi: {custom_status} {custom_emoji} • **discord.gg/illegaltr** oynuyor", ephemeral=True)
+            await interaction.followup.send(f"✅ Durum değiştirildi: {custom_status} {custom_emoji} • **discord.gg/anonymousdc** oynuyor", ephemeral=True)
         else:
             await interaction.followup.send("❌ Durum değiştirilemedi!", ephemeral=True)
 
@@ -1427,7 +1559,7 @@ async def check_tokens_health():
                 selfbot = active_bots[bot_key]
                
                 if not selfbot.ws or selfbot.ws.closed:
-                    print(f"⚠️ {token_data['username']} bağlantısı kopmuş, yeniden bağlanılıyor...")
+                    print(f"⚠️ {token_data.get('name', token_data['username'])} bağlantısı kopmuş, yeniden bağlanılıyor...")
                     try:
                         await selfbot._reconnect()
                     except:
@@ -1437,7 +1569,7 @@ async def check_tokens_health():
 
 
 async def start_all_tokens_to_voice():
-    """Bot açıldığında tüm kayıtlı tokenleri kayıtlı ses kanallarına bağlar (Spotify İllegalTR ile)."""
+    """Bot açıldığında tüm kayıtlı tokenleri kayıtlı ses kanallarına bağlar (Spotify AnonymousDC ile)."""
     # Discord rate limit / connection reset önlemek için tokenlar arası bekleme (saniye)
     DELAY_BETWEEN_TOKENS = 5
     for user_id, user_data in list(token_manager.users.items()):
@@ -1453,7 +1585,7 @@ async def start_all_tokens_to_voice():
                 use_spotify = token_data.get('use_spotify', True)
                 selfbot = SelfBot(
                     token_data['token'],
-                    token_data.get('status_text', 'discord.gg/illegaltr'),
+                    token_data.get('status_text', 'discord.gg/anonymousdc'),
                     use_spotify=use_spotify
                 )
                 await selfbot.connect()
@@ -1465,11 +1597,11 @@ async def start_all_tokens_to_voice():
                 )
                 if success:
                     active_bots[bot_key] = selfbot
-                    print(f"  ✅ {token_data.get('username', '?')} → sese bağlandı")
+                    print(f"  ✅ {token_data.get('name', token_data.get('username', '?'))} → sese bağlandı")
                 else:
                     await selfbot.disconnect()
             except Exception as e:
-                print(f"  ⚠️ {token_data.get('username', '?')} başlatılamadı: {e}")
+                print(f"  ⚠️ {token_data.get('name', token_data.get('username', '?'))} başlatılamadı: {e}")
                 if selfbot is not None:
                     try:
                         await selfbot.disconnect()
@@ -1481,7 +1613,7 @@ if __name__ == "__main__":
     try:
         os.system('cls' if os.name == 'nt' else 'clear')
         print('═' * 70)
-        print('💎 İLLEGALTR AFK BOT')
+        print('💎 ANONYMOUSDC AFK BOT')
         print('═' * 70)
         print('made by recyla')
         print('═' * 70)
